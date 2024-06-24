@@ -9,7 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace apbd11_jwt_auth.Controllers;
 
-[Route("api/[controller]")]
+[Route("api")]
 [ApiController]
 public class UsersController : ControllerBase
 {
@@ -56,23 +56,30 @@ public class UsersController : ControllerBase
     public IActionResult Login(LoginRequest loginRequest)
     {
         AppUser user = _context.Users.Where(u => u.Login == loginRequest.Login).FirstOrDefault();
+        if (user == null)
+        {
+            return Unauthorized("Invalid login");
+        }
 
         string passwordHashFromDb = user.Password;
         string curHashedPassword = SecurityHelpers.GetHashedPasswordWithSalt(loginRequest.Password, user.Salt);
 
         if (passwordHashFromDb != curHashedPassword)
         {
-            return Unauthorized();
+            return Unauthorized("Invalid password");
         }
 
 
-        Claim[] userclaim = new[]
+        Claim[] userClaims = new[]
         {
-            new Claim(ClaimTypes.Name, "pgago"),
+            new Claim(ClaimTypes.Name, user.Login),
             new Claim(ClaimTypes.Role, "user"),
-            new Claim(ClaimTypes.Role, "admin")
+            // new Claim(ClaimTypes.Role, "admin")
             //Add additional data here
         };
+        
+        // Retrieve the user's claims from the database
+        // var userClaims = GetUserClaims(user);
 
         SymmetricSecurityKey key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["SecretKey"]));
 
@@ -81,7 +88,7 @@ public class UsersController : ControllerBase
         JwtSecurityToken token = new JwtSecurityToken(
             issuer: "https://localhost:5001",
             audience: "https://localhost:5001",
-            claims: userclaim,
+            claims: userClaims,
             expires: DateTime.Now.AddMinutes(10),
             signingCredentials: creds
         );
@@ -100,7 +107,12 @@ public class UsersController : ControllerBase
     
     
     // refresh - return new access token and refresh token
+    
+    // testing with Postman:
+    // Authorization -> Type: Bearer Token -> <access token>
+    // Body -> raw -> JSON -> {"refreshToken": "<refresh token>"}
     [Authorize(AuthenticationSchemes = "IgnoreTokenExpirationScheme")]
+    // [AllowAnonymous]
     [HttpPost("refresh")]
     public IActionResult Refresh(RefreshTokenRequest refreshToken)
     {
@@ -115,13 +127,16 @@ public class UsersController : ControllerBase
             throw new SecurityTokenException("Refresh token expired");
         }
         
-        Claim[] userclaim = new[]
+        Claim[] userClaims = new[]
         {
-            new Claim(ClaimTypes.Name, "pgago"),
+            new Claim(ClaimTypes.Name, user.Login),
             new Claim(ClaimTypes.Role, "user"),
-            new Claim(ClaimTypes.Role, "admin")
+            // new Claim(ClaimTypes.Role, "admin")
             //Add additional data here
         };
+        
+        // Retrieve the user's claims from the database
+        // var userClaims = GetUserClaims(user);
 
         SymmetricSecurityKey key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["SecretKey"]));
 
@@ -130,7 +145,7 @@ public class UsersController : ControllerBase
         JwtSecurityToken jwtToken = new JwtSecurityToken(
             issuer: "https://localhost:5001",
             audience: "https://localhost:5001",
-            claims: userclaim,
+            claims: userClaims,
             expires: DateTime.Now.AddMinutes(10),
             signingCredentials: creds
         );
@@ -147,12 +162,35 @@ public class UsersController : ControllerBase
         });
     }
     
+    // private Claim[] GetUserClaims(AppUser user)
+    // {
+    //     // Replace this with your own logic to retrieve the user's claims
+    //     return new[]
+    //     {
+    //         new Claim(ClaimTypes.Name, user.Login),
+    //         new Claim(ClaimTypes.Email, user.Email),
+    //     };
+    //     
+    //     _context.
+    // }
+    
     [Authorize]
-    [HttpGet]
+    [HttpGet("data")]
     public IActionResult GetData()
     {
-        var claimsFromAccessToken = User.Claims;
+        // var claimsFromAccessToken = User.Claims;
         return Ok("Secret data");
+    }
+    
+    [Authorize] // uses the access token to get the user data
+    [HttpGet("userData")]
+    public IActionResult GetUserData()
+    {
+        var claimsFromAccessToken = User.Claims;
+        
+        var login = User.FindFirst(ClaimTypes.Name)?.Value;
+        return Ok($"User data for login: {login}"); 
+        // return Ok("User data");
     }
 
     [AllowAnonymous]

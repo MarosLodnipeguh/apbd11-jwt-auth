@@ -49,6 +49,8 @@ public class Program
                     return Task.CompletedTask;
                 }
             };
+            
+            // scheme for ignoring token expiration used for refreshing the token
         }).AddJwtBearer("IgnoreTokenExpirationScheme",opt =>
         {
             opt.TokenValidationParameters = new TokenValidationParameters
@@ -59,7 +61,7 @@ public class Program
                 ClockSkew = TimeSpan.FromMinutes(2),
                 ValidIssuer = "https://localhost:5001", //should come from configuration
                 ValidAudience = "https://localhost:5001", //should come from configuration
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["SecretKey"]))
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["SecretKey"] ?? string.Empty))
             };
         });
         

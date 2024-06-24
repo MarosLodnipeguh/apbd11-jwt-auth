@@ -6,12 +6,12 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 
-public class AuthMiddleware
+public class BasicAuthMiddleware
 {
     private readonly RequestDelegate _next;
     private const string Realm = "My Realm";
 
-    public AuthMiddleware(RequestDelegate next)
+    public BasicAuthMiddleware(RequestDelegate next)
     {
         _next = next;
     }
